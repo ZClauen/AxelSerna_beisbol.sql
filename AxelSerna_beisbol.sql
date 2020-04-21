@@ -3,7 +3,8 @@ encuentro sera la tabla de juegos en ella ya estan precargados todos los equipos
 se escriban las carreras anotadas por cada juego , las carreras recibidas y un boolean que indica que el juego ya se jugo
 el boolean que es nesesario para cerrar el ciclo de la serie que viene cerrandose jugando los 56 juegos de esta, son 8 equipos 
 precargados cada equipo tendra 7 juegos que jugar para cerrar el ciclo de la serie , al modificar la tabla de juego se iran haciendo 
-cambios a la tabla de estadisticas mediante triggers */ 
+cambios a la tabla de estadisticas mediante triggers */
+/*FUNCIONA CON INSERTS,DELETES Y UPDATES EN TABLA DE JUEGO*/ 
 /*NO HAY EMPATES EN EL PROCESO*/
 
 
@@ -257,13 +258,14 @@ INSERT INTO `axelserna_proyecto`.`j_series` (`idj_series`, `serie_id`, `equipo_i
 
 use AxelSerna_proyecto;
 /*...drop TRIGGER update_estadisticas;...*/ 
+/*...drop TRIGGER insert_estadisticas;...*/ 
+/*...drop TRIGGER delete_estadisticas;...*/ 
 
 SET @juga2 = 0;
 SET @juga3 = 0;
 SET @gan = 0;
 SET @gan2 = 0;
 SET @VAR1 = 0;
-SET @VAR2 = 0;
 
 DELIMITER $$
 CREATE TRIGGER update_estadisticas AFTER UPDATE on juegos
@@ -279,17 +281,15 @@ BEGIN
     if old.serie_id = 1 THEN BEGIN
 		Update j_series set ganadas = ganadas + 1 where equipo_id = old.equipo_id && serie_id= old.serie_id;
 	END;
-    END IF;
-	if old.serie_id = 2 THEN BEGIN
+	elseif old.serie_id = 2 THEN BEGIN
 		Update j_series set ganadas = ganadas + 1 where equipo_id = old.equipo_id && serie_id= old.serie_id;
 	END;
 	END IF;
 	 if @juga2 = 56 && @VAR1 = 0 THEN BEGIN
 		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan;
-		SET @VAR1 = 1;
+        SET @VAR1 = 1;
 	END;
-    END IF;
-	if @juga3 = 56 && @VAR2 = 0 THEN BEGIN
+	elseif @juga3 = 56 && @VAR2 = 0 THEN BEGIN
 		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan2;
         SET @VAR2 = 1;
 	END;
@@ -297,14 +297,11 @@ BEGIN
   END;
   elseif new.juego_carreras_anotadas < new.juego_carreras_recibidas THEN BEGIN
 	Update estadisticas set estadisticas_juegos_perdidos = estadisticas_juegos_perdidos + 1 where estadisticas_equipo_id = old.equipo_id;
-    if @juga2 = 56 && @VAR1 = 0 THEN BEGIN
+    if @juga2 = 56 THEN BEGIN
 		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan;
-        SET @VAR1 = 1;
 	END;
-    END IF;
-	if @juga3 = 56 && @VAR2 = 0 THEN BEGIN
+	elseif @juga3 = 56 THEN BEGIN
 		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan2;
-        SET @VAR2 = 1;
 	END;
 	END IF;
   END;
@@ -312,3 +309,70 @@ BEGIN
 END$$
 DELIMITER ;
 
+DELIMITER $$
+CREATE TRIGGER insert_estadisticas AFTER INSERT on juegos
+FOR EACH ROW 
+BEGIN
+  Update estadisticas set estadisticas_carreras_anotadas = estadisticas_carreras_anotadas + new.juego_carreras_anotadas,  estadisticas_carreras_recibidas = estadisticas_carreras_recibidas + new.juego_carreras_recibidas where estadisticas_equipo_id = new.equipo_id;
+  select sum(juegos.juego_jugado) into @juga2 from juegos where juegos.serie_id = 1;
+  select sum(juegos.juego_jugado) into @juga3 from juegos where juegos.serie_id = 2;
+  select j_series.equipo_id into @gan from j_series where j_series.serie_id = 1 order by ganadas desc limit 1;
+  select j_series.equipo_id into @gan2 from j_series where j_series.serie_id = 2 order by ganadas desc limit 1;
+  IF new.juego_carreras_anotadas > new.juego_carreras_recibidas THEN BEGIN
+    Update estadisticas set estadisticas_juegos_ganados = estadisticas_juegos_ganados + 1 where estadisticas_equipo_id = new.equipo_id;
+    if new.serie_id = 1 THEN BEGIN
+		Update j_series set ganadas = ganadas + 1 where equipo_id = new.equipo_id && serie_id= new.serie_id;
+	END;
+	elseif new.serie_id = 2 THEN BEGIN
+		Update j_series set ganadas = ganadas + 1 where equipo_id = new.equipo_id && serie_id= new.serie_id;
+	END;
+	END IF;
+	 if @juga2 = 56 && @VAR1 = 0 THEN BEGIN
+		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan;
+        SET @VAR1 = 1;
+	END;
+	elseif @juga3 = 56 && @VAR2 = 0 THEN BEGIN
+		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan2;
+        SET @VAR2 = 1;
+	END;
+	END IF;
+  END;
+  elseif new.juego_carreras_anotadas < new.juego_carreras_recibidas THEN BEGIN
+	Update estadisticas set estadisticas_juegos_perdidos = estadisticas_juegos_perdidos + 1 where estadisticas_equipo_id = new.equipo_id;
+    if @juga2 = 56 THEN BEGIN
+		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan;
+	END;
+	elseif @juga3 = 56 THEN BEGIN
+		Update estadisticas set estadisticas_series_ganadas = estadisticas_series_ganadas + 1 where estadisticas_equipo_id = @gan2;
+	END;
+	END IF;
+  END;
+  END IF;
+END$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE TRIGGER delete_estadisticas BEFORE DELETE on juegos
+FOR EACH ROW 
+BEGIN
+  Update estadisticas set estadisticas_carreras_anotadas = estadisticas_carreras_anotadas - old.juego_carreras_anotadas,  estadisticas_carreras_recibidas = estadisticas_carreras_recibidas - old.juego_carreras_recibidas where estadisticas_equipo_id = old.equipo_id;
+  select sum(juegos.juego_jugado) into @juga2 from juegos where juegos.serie_id = 1;
+  select sum(juegos.juego_jugado) into @juga3 from juegos where juegos.serie_id = 2;
+  select j_series.equipo_id into @gan from j_series where j_series.serie_id = 1 order by ganadas desc limit 1;
+  select j_series.equipo_id into @gan2 from j_series where j_series.serie_id = 2 order by ganadas desc limit 1;
+  IF old.juego_carreras_anotadas > old.juego_carreras_recibidas THEN BEGIN
+    Update estadisticas set estadisticas_juegos_ganados = estadisticas_juegos_ganados - 1 where estadisticas_equipo_id = old.equipo_id;
+    if old.serie_id = 1 THEN BEGIN
+		Update j_series set ganadas = ganadas - 1 where equipo_id = old.equipo_id && serie_id= old.serie_id;
+	END;
+	elseif old.serie_id = 2 THEN BEGIN
+		Update j_series set ganadas = ganadas - 1 where equipo_id = old.equipo_id && serie_id= old.serie_id;
+	END;
+	END IF;
+  END;
+  elseif old.juego_carreras_anotadas < old.juego_carreras_recibidas THEN BEGIN
+	Update estadisticas set estadisticas_juegos_perdidos = estadisticas_juegos_perdidos - 1 where estadisticas_equipo_id = old.equipo_id;
+  END;
+  END IF;
+END$$
+DELIMITER ;
